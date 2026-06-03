@@ -23,7 +23,6 @@ public:
 
 	UFUNCTION()
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
-
 private:
 	void print(const char* message);
 	void print(const FString& message);
