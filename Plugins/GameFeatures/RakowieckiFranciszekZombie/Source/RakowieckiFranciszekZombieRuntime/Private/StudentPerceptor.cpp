@@ -3,6 +3,10 @@
 
 #include "StudentPerceptor.h"
 
+#include <string>
+
+#include "Engine/Engine.h"
+
 
 UStudentPerceptor::UStudentPerceptor()
 {
@@ -12,15 +16,36 @@ UStudentPerceptor::UStudentPerceptor()
 void UStudentPerceptor::BeginPlay()
 {
 	Super::BeginPlay();
+
+	print("StudentPerceptor BeginPlay");
 	
 	if (auto PerceptionComp = GetOwner()->GetComponentByClass<UAIPerceptionComponent>())
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
+		print("StudentPerceptor bound to owner perception component");
+	}
+	else
+	{
+		print("StudentPerceptor could not find owner perception component");
 	}
 }
 
 void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
-	GEngine->AddOnScreenDebugMessage(5, 1.f, FColor::Green, 
-	FString::Printf(TEXT("Saw Something!")));
+	print("Saw Something!");
+
+	print(Actor->GetName());
+}
+
+void UStudentPerceptor::print(const char* message)
+{
+	print(ANSI_TO_TCHAR(message));
+}
+
+void UStudentPerceptor::print(const FString& message)
+{
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, message);
+	}
 }
