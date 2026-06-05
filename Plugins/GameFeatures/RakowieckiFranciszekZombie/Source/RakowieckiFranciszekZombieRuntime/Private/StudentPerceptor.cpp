@@ -8,6 +8,7 @@
 #include "Common/InventoryComponent.h"
 #include "Engine/Engine.h"
 #include "Items/BaseItem.h"
+#include "Zombies/BaseZombie.h"
 
 
 UStudentPerceptor::UStudentPerceptor(): Memory()
@@ -87,12 +88,51 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 	if (item)
 	{
 		Memory.RememberItem(item);
+		return;
+	}
+	ABaseZombie* zombie = Cast<ABaseZombie>(Actor);
+	if (zombie)
+	{
+		Memory.RememberZombie(zombie);
+		return;
 	}
 }
 
 void UStudentPerceptor::OnPickupItem(ABaseItem* Item)
 {
+	if (Item->GetItemType() == EItemType::Garbage)
+	{
+		const uint32_t lastIndex = Inventory->GetInventoryCapacity() - 1;
+		if (Inventory->GetInventory()[lastIndex] == nullptr)
+		{
+			Inventory->GrabItem(lastIndex, Item);
+			Inventory->RemoveItem(lastIndex); // Genuinely this is better than making my own function to remove garbage from the floor
+			// Idk if this is 
+			return;
+		}
+	}
 	AddItemToInventory(Item);
+}
+
+void UStudentPerceptor::OnUseItem(EItemType ItemType)
+{
+	switch (ItemType)
+	{
+	case EItemType::Food:
+		UseItem(Parameters.SelectedFood);
+		break;
+	case EItemType::Medkit:
+		UseItem(Parameters.SelectedMeds);
+		break;
+	case EItemType::Shotgun:
+		UseItem(Parameters.SelectedWeapon);
+		break;
+	case EItemType::Pistol:
+		UseItem(Parameters.SelectedWeapon);
+		break;
+	case EItemType::Garbage:
+		break;
+	}
 }
 
 void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
@@ -132,18 +172,26 @@ void UStudentPerceptor::AddItemToInventory(ABaseItem* Item)
  	}
 }
 
+void UStudentPerceptor::UseItem(ABaseItem* Item)
+{
+	if (Item)
+	{
+		Item->UseItem(*Cast<ASurvivorPawn>(GetOwner()));
+	}
+}
+
 void UStudentPerceptor::UpdateBlackboardValues()
 {
 	Blackboard->SetValueAsObject(TEXT("Survivor"), GetOwner());
 	Blackboard->SetValueAsObject(TEXT("Zombie"), nullptr);
 	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItem());
-	Blackboard->SetValueAsVector(TEXT("AvgAwayFromZombies"), {});
-	Blackboard->SetValueAsBool(TEXT("hasWeapon"), hasWeapon);
-	Blackboard->SetValueAsBool(TEXT("hasMeds"), hasMeds);
-	Blackboard->SetValueAsBool(TEXT("hasFood"), hasFood);
-	Blackboard->SetValueAsBool(TEXT("isDying"), isDying);
-	Blackboard->SetValueAsBool(TEXT("isHungry"), isHungry);
-	Blackboard->SetValueAsBool(TEXT("hasInventorySpace"), hasInventorySpace);
+	Blackboard->SetValueAsVector(TEXT("AvgAwayFromZombies"), Memory.GetRelZombieLoc());
+	Blackboard->SetValueAsBool(TEXT("hasWeapon"), Parameters.HasWeapon);
+	Blackboard->SetValueAsBool(TEXT("hasMeds"), Parameters.HasMeds);
+	Blackboard->SetValueAsBool(TEXT("hasFood"), Parameters.HasFood);
+	Blackboard->SetValueAsBool(TEXT("isDying"), Parameters.IsDying);
+	Blackboard->SetValueAsBool(TEXT("isHungry"), Parameters.IsHungry);
+	Blackboard->SetValueAsBool(TEXT("hasInventorySpace"), Parameters.HasInventorySpace);
 	Blackboard->SetValueAsObject(TEXT("Food"), Memory.GetFood());
 	Blackboard->SetValueAsObject(TEXT("Meds"), Memory.GetMeds());
 	Blackboard->SetValueAsObject(TEXT("Weapon"), Memory.GetWeapon());
@@ -151,17 +199,20 @@ void UStudentPerceptor::UpdateBlackboardValues()
 
 void UStudentPerceptor::UpdateInventoryStoredInfo()
 {
-	hasWeapon = false;
-	hasFood = false;
-	hasMeds = false;
-	hasInventorySpace = false;
+	Parameters.HasWeapon = false;
+	Parameters.HasFood = false;
+	Parameters.HasMeds = false;
+	Parameters.HasInventorySpace = false;
+	Parameters.SelectedWeapon = nullptr;
+	Parameters.SelectedFood = nullptr;
+	Parameters.SelectedMeds = nullptr;
 	int32_t index{-1};
 	for (auto item : Inventory->GetInventory())
 	{
 		index++;
 		if (item == nullptr)
 		{
-			hasInventorySpace = true;
+			Parameters.HasInventorySpace = true;
 			continue;
 		}
 		if (item->GetValue() == 0)
@@ -172,20 +223,24 @@ void UStudentPerceptor::UpdateInventoryStoredInfo()
 		switch (item->GetItemType())
 		{
 			case EItemType::Food:
-				hasFood = true;
+				Parameters.HasFood = true;
+				if (!Parameters.SelectedFood)
+					Parameters.SelectedFood = item;
 				break;
 			case EItemType::Medkit:
-				hasMeds = true;
+				Parameters.HasMeds = true;
+				if (!Parameters.SelectedMeds)
+					Parameters.SelectedMeds = item;
 				break;
 			case EItemType::Shotgun:
 			case EItemType::Pistol:
-				hasWeapon = true;
+				Parameters.HasWeapon = true;
+				if (!Parameters.SelectedWeapon)
+					Parameters.SelectedWeapon = item;
 				break;
 			case EItemType::Garbage:
 				break;
 		}
-
-		
 	}
 }
 
@@ -193,10 +248,10 @@ void UStudentPerceptor::UpdateHealthInfo()
 {
 	{
 		float percentageMissing = float(Health->GetHealth()) / float(Health->GetMaxHealth());
-		isDying = percentageMissing < 0.5f;
+		Parameters.IsDying = percentageMissing < 0.5f;
 	}
 	{
 		float percentageMissing = Stamina->GetCurrentStamina() / Stamina->GetMaxStamina();
-		isHungry = percentageMissing < 0.5f;
+		Parameters.IsHungry = percentageMissing < 0.5f;
 	}
 }

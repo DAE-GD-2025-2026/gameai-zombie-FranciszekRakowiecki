@@ -5,6 +5,12 @@
 
 class ABaseZombie;
 
+struct ZombieMemory
+{
+	float lastSeen;
+	ABaseZombie* zombie{nullptr};
+};
+
 class FPerceptorMemory
 {
 public:
@@ -12,6 +18,7 @@ public:
 
 	void SetOwner(AActor* owner);
 	void RememberItem(ABaseItem* item);
+	void RememberZombie(ABaseZombie* zombie);
 
 	void ItemPickedUp(ABaseItem* item);
 
@@ -22,10 +29,16 @@ public:
 	ABaseItem* GetWeapon() const;
 	ABaseItem* GetMeds() const;
 
+	FVector GetRelZombieLoc() const { return m_RelevantAvgZombieLocation; }
+	ABaseZombie* GetZombie() const;
+
 private:
 	
-	bool IsItemFar(ABaseItem* item);
-	bool IsCloseEnoughForPickup(ABaseItem* item);
+	bool IsItemFar(ABaseItem* item) const;
+	bool IsCloseEnoughForPickup(ABaseItem* item) const;
+	bool IsZombieRelevant(ABaseZombie* zombie) const;
+
+	void UpdateZombieInfo();
 
 	AActor* m_Owner{nullptr};
 	std::vector<ABaseItem*> m_InWorldMemoryItems{};
@@ -34,7 +47,11 @@ private:
 	ABaseItem* m_Weapon;
 	ABaseItem* m_Meds;
 
+	FVector m_RelevantAvgZombieLocation;
+	ABaseZombie* m_ClosestZombie{nullptr};
+
 public:
-	double ItemRememberRadius{1000.0f};
-	double ItemPickupRadius{300.0f};
+	double ItemRememberRadius{1000.0};
+	double ItemPickupRadius{300.0};
+	double ZombieRelevanceRadius{3000.0};
 };

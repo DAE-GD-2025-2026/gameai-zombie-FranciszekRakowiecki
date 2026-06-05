@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "PerceptorMemory.h"
+#include "SurvivorParams.h"
 #include "Components/ActorComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
@@ -40,17 +41,14 @@ private:
 	UStaminaComponent* Stamina{nullptr};
 
 	FPerceptorMemory Memory{};
-	bool hasWeapon{false};
-	bool hasFood{false};
-	bool hasMeds{false};
-	bool isDying{false};
-	bool isHungry{false};
-	bool hasInventorySpace{true};
+	SurvivorParams Parameters{};
 	
 	void print(const char* message);
 	void print(const FString& message);
 
 	void AddItemToInventory(ABaseItem* Item);
+
+	void UseItem(ABaseItem* Item);
 
 	void UpdateBlackboardValues();
 	void UpdateInventoryStoredInfo();
