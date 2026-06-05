@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PerceptorMemory.h"
 #include "Components/ActorComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
@@ -23,7 +24,35 @@ public:
 
 	UFUNCTION()
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
+
+	UFUNCTION(BlueprintCallable, Category="Student Perceptor")
+	virtual void OnPickupItem(ABaseItem* Item);
+	UFUNCTION(BlueprintCallable, Category="Student Perceptor")
+	virtual void OnUseItem(EItemType ItemType);
+
+	void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 private:
+	APawn* Self{nullptr};
+	AAIController* Controller{nullptr};
+	UBlackboardComponent* Blackboard{nullptr};
+	UInventoryComponent* Inventory{nullptr};
+	UHealthComponent* Health{nullptr};
+	UStaminaComponent* Stamina{nullptr};
+
+	FPerceptorMemory Memory{};
+	bool hasWeapon{false};
+	bool hasFood{false};
+	bool hasMeds{false};
+	bool isDying{false};
+	bool isHungry{false};
+	bool hasInventorySpace{true};
+	
 	void print(const char* message);
 	void print(const FString& message);
+
+	void AddItemToInventory(ABaseItem* Item);
+
+	void UpdateBlackboardValues();
+	void UpdateInventoryStoredInfo();
+	void UpdateHealthInfo();
 };

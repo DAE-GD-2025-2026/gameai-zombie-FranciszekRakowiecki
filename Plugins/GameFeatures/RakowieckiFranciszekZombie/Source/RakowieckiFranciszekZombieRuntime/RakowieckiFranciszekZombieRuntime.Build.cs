@@ -25,7 +25,7 @@ public class RakowieckiFranciszekZombieRuntime : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core",
+				"Core", "GameAI_Zombie",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
