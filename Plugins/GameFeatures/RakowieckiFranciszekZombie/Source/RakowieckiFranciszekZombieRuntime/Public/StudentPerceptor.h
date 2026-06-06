@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include <memory>
+
 #include "CoreMinimal.h"
+#include "BlendedSteering.h"
 #include "PerceptorMemory.h"
 #include "SurvivorParams.h"
 #include "Components/ActorComponent.h"
@@ -45,6 +48,10 @@ private:
 
 	FPerceptorMemory Memory{};
 	SurvivorParams Parameters{};
+
+	FVector MovementDirection{};
+
+	std::unique_ptr<BlendedSteering> Steering{};
 	
 	void print(const char* message);
 	void print(const FString& message);

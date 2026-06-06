@@ -4,6 +4,7 @@
 #include "StudentPerceptor.h"
 
 #include "AIController.h"
+#include "SurvivorBehaviors.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Common/InventoryComponent.h"
 #include "Engine/Engine.h"
@@ -94,6 +95,12 @@ void UStudentPerceptor::BeginPlay()
 	{
 		print("StudentPerceptor could not find owner stamina component");
 	}
+
+	Steering = std::make_unique<BlendedSteering>();
+
+	Steering->AddSteering(std::make_unique<FleeZombies>(), 1.0);
+	Steering->AddSteering(std::make_unique<AvoidPurgeZones>(), 0.6);
+	Steering->AddSteering(std::make_unique<FindHouse>(), 0.3);
 }
 
 void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
@@ -184,6 +191,9 @@ void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
 
 	UpdateInventoryStoredInfo();
 	UpdateHealthInfo();
+
+	MovementDirection = Steering->GetOutput(Parameters, Memory, GetOwner());
+	
 	UpdateBlackboardValues();
 }
 
@@ -225,7 +235,7 @@ void UStudentPerceptor::UpdateBlackboardValues()
 	Blackboard->SetValueAsObject(TEXT("Survivor"), GetOwner());
 	Blackboard->SetValueAsObject(TEXT("Zombie"), Memory.GetZombie());
 	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItemDistance() < Inventory->GetPickupRange() ? Memory.GetClosestItem() : nullptr);
-	Blackboard->SetValueAsVector(TEXT("AvgAwayFromZombies"), Memory.GetRelZombieLoc());
+	Blackboard->SetValueAsVector(TEXT("TargetLocation"), MovementDirection * Memory.FleeDistance + GetOwner()->GetActorLocation());
 	Blackboard->SetValueAsBool(TEXT("hasWeapon"), Parameters.HasWeapon);
 	Blackboard->SetValueAsBool(TEXT("hasMeds"), Parameters.HasMeds);
 	Blackboard->SetValueAsBool(TEXT("hasFood"), Parameters.HasFood);

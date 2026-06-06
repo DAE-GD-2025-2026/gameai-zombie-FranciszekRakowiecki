@@ -202,7 +202,7 @@ void FPerceptorMemory::UpdateZombieInfo()
 
 	direction.Normalize();
 
-	m_RelevantAvgZombieLocation = direction * FleeDistance + position;
+	m_RelevantAvgZombieLocation = position;
 	m_RelevantAvgZombieLocation.Z = m_Owner->GetActorLocation().Z;
 }
 

@@ -68,6 +68,6 @@ public:
 	double ItemRememberRadius{1000.0};
 	double ItemPickupRadius{300.0};
 	double ZombieRelevanceRadius{3000.0};
-	double FleeDistance{800.0};
+	double FleeDistance{300.0};
 	double HouseVisitDelay{60.0};
 };
