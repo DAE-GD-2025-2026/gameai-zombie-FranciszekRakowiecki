@@ -36,6 +36,8 @@ public:
 
 	UFUNCTION()
 	void OnZombieActorDestroyed(AActor* DestroyedActor);
+	UFUNCTION()
+	void OnPurgeZoneActorDestroyed(AActor* DestroyedActor);
 
 	void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 private:

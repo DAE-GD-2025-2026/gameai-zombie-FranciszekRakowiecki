@@ -14,9 +14,11 @@ class BlendedSteering : public SteeringBehavior
 	
 public:
 	void AddSteering(std::unique_ptr<SteeringBehavior> steering, float weight);
+	bool HasOutput() const;
 
 	FVector GetOutput(const SurvivorParams& params, const FPerceptorMemory& memory, AActor* owner) override;
 
 private:
 	std::vector<Blend> m_Steerings{};
+	bool m_HasOutput{ false };
 };

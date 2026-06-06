@@ -9,6 +9,7 @@
 #include "Common/InventoryComponent.h"
 #include "Engine/Engine.h"
 #include "Items/BaseItem.h"
+#include "PurgeZones/PurgeZone.h"
 #include "Village/House/House.h"
 #include "Zombies/BaseZombie.h"
 
@@ -100,8 +101,8 @@ void UStudentPerceptor::BeginPlay()
 	Steering = std::make_unique<BlendedSteering>();
 
 	Steering->AddSteering(std::make_unique<FleeZombies>(), 1.0);
-	Steering->AddSteering(std::make_unique<AvoidPurgeZones>(), 0.6);
-	Steering->AddSteering(std::make_unique<FindHouse>(), 0.3);
+	Steering->AddSteering(std::make_unique<AvoidPurgeZones>(), 3.6);
+	Steering->AddSteering(std::make_unique<FindHouse>(), 1.0);
 }
 
 void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
@@ -131,10 +132,28 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 		Memory.RememberHouse(house);
 		return;
 	}
+	APurgeZone* zone = Cast<APurgeZone>(Actor);
+	if (zone)
+	{
+		Memory.RememberPurgeZone(zone);
+
+		if (!zone->OnDestroyed.IsAlreadyBound(this, &UStudentPerceptor::OnPurgeZoneActorDestroyed))
+		{
+			zone->OnDestroyed.AddDynamic(this, &UStudentPerceptor::OnPurgeZoneActorDestroyed);
+		}
+	}
 }
 
 void UStudentPerceptor::OnPickupItem(ABaseItem* Item)
 {
+	if (!Item || !Inventory)
+	{
+		return;
+	}
+
+	if (!Memory.IsCloseEnoughForPickup(Item))
+		return;
+
 	if (Item->GetItemType() == EItemType::Garbage)
 	{
 		const uint32_t lastIndex = Inventory->GetInventoryCapacity() - 1;
@@ -177,6 +196,11 @@ void UStudentPerceptor::OnZombieActorDestroyed(AActor* DestroyedActor)
 	Memory.ForgetZombie(Cast<ABaseZombie>(DestroyedActor));
 }
 
+void UStudentPerceptor::OnPurgeZoneActorDestroyed(AActor* DestroyedActor)
+{
+	Memory.ForgetPurgeZone(Cast<APurgeZone>(DestroyedActor));
+}
+
 void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
                                       FActorComponentTickFunction* ThisTickFunction)
 {
@@ -201,7 +225,18 @@ void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
 	UpdateInventoryStoredInfo();
 	UpdateHealthInfo();
 
+	if (Memory.GetClosestItem())
+	{
+		Parameters.IsCloseEnoughForPickup = Memory.IsCloseEnoughForPickup(Memory.GetClosestItem());
+	}
+	else
+	{
+		Parameters.IsCloseEnoughForPickup = false;
+	}
+
 	MovementDirection = Steering->GetOutput(Parameters, Memory, GetOwner());
+	Parameters.HasTargetLocation = Steering->HasOutput() && !MovementDirection.IsNearlyZero();
+	Parameters.IsZombieCloseEnough = Memory.GetZombieCloseEnough();
 	
 	UpdateBlackboardValues();
 }
@@ -242,10 +277,11 @@ void UStudentPerceptor::UseItem(ABaseItem* Item)
 void UStudentPerceptor::UpdateBlackboardValues()
 {
 	Blackboard->SetValueAsObject(TEXT("Survivor"), GetOwner());
+	Blackboard->SetValueAsObject(TEXT("SelfActor"), GetOwner());
 	Blackboard->SetValueAsObject(TEXT("Zombie"), Memory.GetZombie());
-	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItemDistance() < Inventory->GetPickupRange() ? Memory.GetClosestItem() : nullptr);
-	Blackboard->SetValueAsVector(TEXT("TargetLocation"), MovementDirection * Memory.FleeDistance + GetOwner()->GetActorLocation());
-	Blackboard->SetValueAsBool(TEXT("isZombieCloseEnough"), Memory.GetZombieCloseEnough()); 
+	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItem());
+	Blackboard->SetValueAsVector(TEXT("TargetLocation"), Parameters.HasTargetLocation ? MovementDirection * Memory.FleeDistance + GetOwner()->GetActorLocation() : GetOwner()->GetActorLocation());
+	Blackboard->SetValueAsBool(TEXT("hasTargetLocation"), Parameters.HasTargetLocation);
 	Blackboard->SetValueAsBool(TEXT("hasWeapon"), Parameters.HasWeapon);
 	Blackboard->SetValueAsBool(TEXT("hasMeds"), Parameters.HasMeds);
 	Blackboard->SetValueAsBool(TEXT("hasFood"), Parameters.HasFood);
@@ -253,6 +289,7 @@ void UStudentPerceptor::UpdateBlackboardValues()
 	Blackboard->SetValueAsBool(TEXT("isHungry"), Parameters.IsHungry);
 	Blackboard->SetValueAsBool(TEXT("isZombieCloseEnough"), Parameters.IsZombieCloseEnough);
 	Blackboard->SetValueAsBool(TEXT("hasInventorySpace"), Parameters.HasInventorySpace);
+	Blackboard->SetValueAsBool(TEXT("isCloseEnoughForPickup"), Parameters.IsCloseEnoughForPickup);
 	Blackboard->SetValueAsObject(TEXT("Food"), Memory.GetFood());
 	Blackboard->SetValueAsObject(TEXT("Medical"), Memory.GetMeds());
 	Blackboard->SetValueAsObject(TEXT("Weapon"), Memory.GetWeapon());
@@ -298,6 +335,9 @@ void UStudentPerceptor::UpdateInventoryStoredInfo()
 					Parameters.SelectedMeds = item;
 				break;
 			case EItemType::Shotgun:
+				Parameters.HasWeapon = true;
+				Parameters.SelectedWeapon = item;
+				break;
 			case EItemType::Pistol:
 				Parameters.HasWeapon = true;
 				if (!Parameters.SelectedWeapon)

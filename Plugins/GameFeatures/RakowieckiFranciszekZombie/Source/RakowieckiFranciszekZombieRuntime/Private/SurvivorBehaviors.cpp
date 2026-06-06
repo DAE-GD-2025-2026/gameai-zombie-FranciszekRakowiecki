@@ -44,7 +44,7 @@ FVector FindHouse::GetOutput(const SurvivorParams& params, const FPerceptorMemor
 	AHouse* house = memory.GetHouse();
 	if (house != nullptr)
 	{
-		return (owner->GetActorLocation() - memory.GetHouse()->GetActorLocation()).GetSafeNormal();
+		return (memory.GetHouse()->GetActorLocation() - owner->GetActorLocation()).GetSafeNormal();
 	}
 	return FVector::ZeroVector;
 }

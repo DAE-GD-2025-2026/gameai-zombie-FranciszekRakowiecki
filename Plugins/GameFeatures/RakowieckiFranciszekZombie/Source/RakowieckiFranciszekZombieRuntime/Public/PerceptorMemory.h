@@ -25,6 +25,7 @@ public:
 	void RememberHouse(AHouse* house);
 	void RememberPurgeZone(APurgeZone* purgeZone);
 	void ForgetZombie(ABaseZombie* Zombie);
+	void ForgetPurgeZone(APurgeZone* PurgeZone);
 
 	void ItemPickedUp(ABaseItem* item);
 
@@ -42,10 +43,11 @@ public:
 	double GetClosestItemDistance() const;
 	bool GetZombieCloseEnough() const;
 
+	bool IsCloseEnoughForPickup(ABaseItem* item) const;
+
 private:
 	
 	bool IsItemFar(ABaseItem* item) const;
-	bool IsCloseEnoughForPickup(ABaseItem* item) const;
 	bool IsZombieRelevant(ABaseZombie* zombie) const;
 
 	void UpdateZombieInfo();
@@ -59,14 +61,14 @@ private:
 	std::vector<ABaseZombie*> m_SpottedZombies{};
 	std::vector<HouseMemory> m_InWorldHouses{};
 	std::vector<APurgeZone*> m_InWorldPurgeZones{};
-	ABaseItem* m_Food;
-	ABaseItem* m_Weapon;
-	ABaseItem* m_Meds;
-	ABaseItem* m_ClosestItem;
+	ABaseItem* m_Food{nullptr};
+	ABaseItem* m_Weapon{nullptr};
+	ABaseItem* m_Meds{nullptr};
+	ABaseItem* m_ClosestItem{nullptr};
 
-	AHouse* m_TargetHouse;
+	AHouse* m_TargetHouse{nullptr};
 
-	FVector m_RelevantAvgZombieLocation;
+	FVector m_RelevantAvgZombieLocation{FVector::ZeroVector};
 	ABaseZombie* m_ClosestZombie{nullptr};
 	double m_ClosestDistance{0.0};
 	bool m_ZombieClose{false};
