@@ -9,6 +9,7 @@ struct SurvivorParams
 	bool IsDying{false};
 	bool IsHungry{false};
 	bool HasInventorySpace{true};
+	bool IsZombieCloseEnough{false};
 
 	ABaseItem* SelectedWeapon{nullptr};
 	ABaseItem* SelectedFood{nullptr};

@@ -34,6 +34,14 @@ void FPerceptorMemory::RememberHouse(AHouse* house)
 	}
 }
 
+void FPerceptorMemory::RememberPurgeZone(APurgeZone* purgeZone)
+{
+	if (std::find(m_InWorldPurgeZones.begin(), m_InWorldPurgeZones.end(), purgeZone) == m_InWorldPurgeZones.end())
+	{
+		m_InWorldPurgeZones.push_back(purgeZone);
+	}
+}
+
 void FPerceptorMemory::ForgetZombie(ABaseZombie* Zombie)
 {
 	std::erase(m_SpottedZombies, Zombie);
@@ -73,6 +81,8 @@ void FPerceptorMemory::UpdateItemInfo()
 	for (auto item : m_InWorldMemoryItems)
 	{
 		double distance = FVector::Distance(m_Owner->GetActorLocation(), item->GetActorLocation());
+		if (distance > ItemRememberRadius)
+			continue;
 		if (distance < minDistance)
 		{
 			minDistance = distance;
@@ -171,16 +181,21 @@ void FPerceptorMemory::UpdateZombieInfo()
 	uint32_t count{0};
 	m_ClosestZombie = nullptr;
 	double minDistance = 1500.0;
+	m_ZombieClose = false;
 
 	for (auto Zombie : m_SpottedZombies)
 	{
 		if (IsZombieRelevant(Zombie))
 		{
-			double distance = FVector::Distance(Zombie->GetActorLocation(), m_Owner->GetActorLocation());
+			double distance = FVector::Distance(Zombie->GetActorLocation(), m_Owner->GetActorLocation()) + 600.0;
+			float maxSpeed = Zombie->GetMovementComponent()->GetMaxSpeed();
+			distance -= maxSpeed;
 			if (distance < minDistance)
 			{
 				minDistance = distance;
 				m_ClosestZombie = Zombie;
+				if (distance < 300.0)
+					m_ZombieClose = true;
 			}
 			avg += Zombie->GetActorLocation();
 			count++;
@@ -216,9 +231,24 @@ ABaseItem* FPerceptorMemory::GetClosestItem() const
 	return m_ClosestItem;
 }
 
+AHouse* FPerceptorMemory::GetHouse() const
+{
+	return m_TargetHouse;
+}
+
+const std::vector<APurgeZone*>& FPerceptorMemory::GetPurgeZones() const
+{
+	return m_InWorldPurgeZones;
+}
+
 double FPerceptorMemory::GetClosestItemDistance() const
 {
 	return m_ClosestDistance;
+}
+
+bool FPerceptorMemory::GetZombieCloseEnough() const
+{
+	return m_ZombieClose;
 }
 
 bool FPerceptorMemory::IsItemFar(ABaseItem* item) const

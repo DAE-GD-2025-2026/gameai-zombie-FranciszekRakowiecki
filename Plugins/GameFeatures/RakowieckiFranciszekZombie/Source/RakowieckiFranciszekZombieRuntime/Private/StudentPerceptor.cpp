@@ -9,6 +9,7 @@
 #include "Common/InventoryComponent.h"
 #include "Engine/Engine.h"
 #include "Items/BaseItem.h"
+#include "Village/House/House.h"
 #include "Zombies/BaseZombie.h"
 
 
@@ -124,6 +125,12 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 		}
 		return;
 	}
+	AHouse* house = Cast<AHouse>(Actor);
+	if (house)
+	{
+		Memory.RememberHouse(house);
+		return;
+	}
 }
 
 void UStudentPerceptor::OnPickupItem(ABaseItem* Item)
@@ -135,10 +142,12 @@ void UStudentPerceptor::OnPickupItem(ABaseItem* Item)
 		{
 			Inventory->GrabItem(lastIndex, Item);
 			Inventory->RemoveItem(lastIndex); // Genuinely this is better than making my own function to remove garbage from the floor
-			// Idk if this is 
 			return;
 		}
+		return;
 	}
+	else if (Parameters.HasMeds && Item->GetItemType() == EItemType::Medkit)
+		return;
 	AddItemToInventory(Item);
 }
 
@@ -236,11 +245,13 @@ void UStudentPerceptor::UpdateBlackboardValues()
 	Blackboard->SetValueAsObject(TEXT("Zombie"), Memory.GetZombie());
 	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItemDistance() < Inventory->GetPickupRange() ? Memory.GetClosestItem() : nullptr);
 	Blackboard->SetValueAsVector(TEXT("TargetLocation"), MovementDirection * Memory.FleeDistance + GetOwner()->GetActorLocation());
+	Blackboard->SetValueAsBool(TEXT("isZombieCloseEnough"), Memory.GetZombieCloseEnough()); 
 	Blackboard->SetValueAsBool(TEXT("hasWeapon"), Parameters.HasWeapon);
 	Blackboard->SetValueAsBool(TEXT("hasMeds"), Parameters.HasMeds);
 	Blackboard->SetValueAsBool(TEXT("hasFood"), Parameters.HasFood);
 	Blackboard->SetValueAsBool(TEXT("isDying"), Parameters.IsDying);
 	Blackboard->SetValueAsBool(TEXT("isHungry"), Parameters.IsHungry);
+	Blackboard->SetValueAsBool(TEXT("isZombieCloseEnough"), Parameters.IsZombieCloseEnough);
 	Blackboard->SetValueAsBool(TEXT("hasInventorySpace"), Parameters.HasInventorySpace);
 	Blackboard->SetValueAsObject(TEXT("Food"), Memory.GetFood());
 	Blackboard->SetValueAsObject(TEXT("Medical"), Memory.GetMeds());

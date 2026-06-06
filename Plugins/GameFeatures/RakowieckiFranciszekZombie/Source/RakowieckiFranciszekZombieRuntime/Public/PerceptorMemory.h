@@ -3,6 +3,7 @@
 
 #include "Items/BaseItem.h"
 
+class APurgeZone;
 class AHouse;
 class ABaseZombie;
 
@@ -22,6 +23,7 @@ public:
 	void RememberItem(ABaseItem* item);
 	void RememberZombie(ABaseZombie* zombie);
 	void RememberHouse(AHouse* house);
+	void RememberPurgeZone(APurgeZone* purgeZone);
 	void ForgetZombie(ABaseZombie* Zombie);
 
 	void ItemPickedUp(ABaseItem* item);
@@ -35,7 +37,10 @@ public:
 	FVector GetRelZombieLoc() const { return m_RelevantAvgZombieLocation; }
 	ABaseZombie* GetZombie() const;
 	ABaseItem* GetClosestItem() const;
+	AHouse* GetHouse() const;
+	const std::vector<APurgeZone*>& GetPurgeZones() const;
 	double GetClosestItemDistance() const;
+	bool GetZombieCloseEnough() const;
 
 private:
 	
@@ -53,6 +58,7 @@ private:
 	std::vector<ABaseItem*> m_InWorldMemoryItems{};
 	std::vector<ABaseZombie*> m_SpottedZombies{};
 	std::vector<HouseMemory> m_InWorldHouses{};
+	std::vector<APurgeZone*> m_InWorldPurgeZones{};
 	ABaseItem* m_Food;
 	ABaseItem* m_Weapon;
 	ABaseItem* m_Meds;
@@ -63,6 +69,7 @@ private:
 	FVector m_RelevantAvgZombieLocation;
 	ABaseZombie* m_ClosestZombie{nullptr};
 	double m_ClosestDistance{0.0};
+	bool m_ZombieClose{false};
 
 public:
 	double ItemRememberRadius{1000.0};
