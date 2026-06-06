@@ -32,20 +32,33 @@ void UStudentPerceptor::BeginPlay()
 		print("Failed to cast to APawn");
 		return;
 	}
+	print("Found APawn");
 
 	Controller = Cast<AAIController>(Self->GetController());
 
 	if (!Controller)
 	{
 		print("Failed to cast AAIController");
-		return;
 	}
+	else
+	{
+		print("Found AAIController");
 	
-	Blackboard = Controller->GetBlackboardComponent();
+		Blackboard = Controller->GetBlackboardComponent();
+		if (!Blackboard)
+		{
+			print("Blackboard not ready yet");
+		}
+		else
+		{
+			print("Found blackboard");
+		}
+	}
 	
 	if (auto PerceptionComp = GetOwner()->GetComponentByClass<UAIPerceptionComponent>())
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
+		print("Found perception component");
 	}
 	else
 	{
@@ -55,6 +68,7 @@ void UStudentPerceptor::BeginPlay()
 	if (auto InventoryComponent = GetOwner()->GetComponentByClass<UInventoryComponent>())
 	{
 		Inventory = InventoryComponent;
+		print("Found inventory component");
 	}
 	else
 	{
@@ -64,6 +78,7 @@ void UStudentPerceptor::BeginPlay()
 	if (auto HealthComponent = GetOwner()->GetComponentByClass<UHealthComponent>())
 	{
 		Health = HealthComponent;
+		print("Found health component");
 	}
 	else
 	{
@@ -73,6 +88,7 @@ void UStudentPerceptor::BeginPlay()
 	if (auto StaminaComponent = GetOwner()->GetComponentByClass<UStaminaComponent>())
 	{
 		Stamina = StaminaComponent;
+		print("Found stamina component");
 	}
 	else
 	{
@@ -94,6 +110,11 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 	if (zombie)
 	{
 		Memory.RememberZombie(zombie);
+
+		if (!zombie->OnDestroyed.IsAlreadyBound(this, &UStudentPerceptor::OnZombieActorDestroyed))
+		{
+			zombie->OnDestroyed.AddDynamic(this, &UStudentPerceptor::OnZombieActorDestroyed);
+		}
 		return;
 	}
 }
@@ -135,15 +156,34 @@ void UStudentPerceptor::OnUseItem(EItemType ItemType)
 	}
 }
 
+void UStudentPerceptor::OnZombieActorDestroyed(AActor* DestroyedActor)
+{
+	Memory.ForgetZombie(Cast<ABaseZombie>(DestroyedActor));
+}
+
 void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
                                       FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (!Controller && Self)
+	{
+		Controller = Cast<AAIController>(Self->GetController());
+	}
+	if (!Blackboard && Controller)
+	{
+		Blackboard = Controller->GetBlackboardComponent();
+	}
+	if (!Inventory || !Blackboard)
+	{
+		return;
+	}
+
 	Memory.ItemPickupRadius = Inventory->GetPickupRange();
 	Memory.Tick();
 
 	UpdateInventoryStoredInfo();
+	UpdateHealthInfo();
 	UpdateBlackboardValues();
 }
 
@@ -183,8 +223,8 @@ void UStudentPerceptor::UseItem(ABaseItem* Item)
 void UStudentPerceptor::UpdateBlackboardValues()
 {
 	Blackboard->SetValueAsObject(TEXT("Survivor"), GetOwner());
-	Blackboard->SetValueAsObject(TEXT("Zombie"), nullptr);
-	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItem());
+	Blackboard->SetValueAsObject(TEXT("Zombie"), Memory.GetZombie());
+	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItemDistance() < Inventory->GetPickupRange() ? Memory.GetClosestItem() : nullptr);
 	Blackboard->SetValueAsVector(TEXT("AvgAwayFromZombies"), Memory.GetRelZombieLoc());
 	Blackboard->SetValueAsBool(TEXT("hasWeapon"), Parameters.HasWeapon);
 	Blackboard->SetValueAsBool(TEXT("hasMeds"), Parameters.HasMeds);
@@ -193,8 +233,12 @@ void UStudentPerceptor::UpdateBlackboardValues()
 	Blackboard->SetValueAsBool(TEXT("isHungry"), Parameters.IsHungry);
 	Blackboard->SetValueAsBool(TEXT("hasInventorySpace"), Parameters.HasInventorySpace);
 	Blackboard->SetValueAsObject(TEXT("Food"), Memory.GetFood());
-	Blackboard->SetValueAsObject(TEXT("Meds"), Memory.GetMeds());
+	Blackboard->SetValueAsObject(TEXT("Medical"), Memory.GetMeds());
 	Blackboard->SetValueAsObject(TEXT("Weapon"), Memory.GetWeapon());
+	Blackboard->SetValueAsVector(TEXT("ClosestZombieLocation"), Memory.GetZombie() ? Memory.GetZombie()->GetActorLocation() : FVector{});
+	Blackboard->SetValueAsVector(TEXT("FoodLocation"), Memory.GetFood() ? Memory.GetFood()->GetActorLocation() : FVector{});
+	Blackboard->SetValueAsVector(TEXT("MedsLocation"), Memory.GetMeds() ? Memory.GetMeds()->GetActorLocation() : FVector{});
+	Blackboard->SetValueAsVector(TEXT("WeaponLocation"), Memory.GetWeapon() ? Memory.GetWeapon()->GetActorLocation() : FVector{});
 }
 
 void UStudentPerceptor::UpdateInventoryStoredInfo()

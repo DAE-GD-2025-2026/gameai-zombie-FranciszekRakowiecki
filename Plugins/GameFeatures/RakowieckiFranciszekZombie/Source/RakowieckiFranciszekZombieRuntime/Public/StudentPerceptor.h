@@ -31,6 +31,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Student Perceptor")
 	virtual void OnUseItem(EItemType ItemType);
 
+	UFUNCTION()
+	void OnZombieActorDestroyed(AActor* DestroyedActor);
+
 	void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 private:
 	APawn* Self{nullptr};
