@@ -74,6 +74,7 @@ void FPerceptorMemory::UpdateItemInfo()
 	double minDistance = std::numeric_limits<double>::max();
 
 	m_ClosestItem = nullptr;
+	m_ClosestDistance = minDistance;
 	
 	double minFoodDistance = std::numeric_limits<double>::max();
 	double minWeaponDistance = std::numeric_limits<double>::max();
@@ -194,13 +195,13 @@ void FPerceptorMemory::UpdateZombieInfo()
 		{
 			double distance = FVector::Distance(Zombie->GetActorLocation(), m_Owner->GetActorLocation());
 			float maxSpeed = Zombie->GetMovementComponent()->GetMaxSpeed();
-			double threatDistance = distance + 600.0 - maxSpeed;
+			double threatDistance = distance;
 			if (threatDistance < minDistance)
 			{
 				minDistance = threatDistance;
 				m_ClosestZombie = Zombie;
 			}
-			if (distance < 600.0 + maxSpeed * 0.5)
+			if (distance < 400.0 + maxSpeed * 0.5)
 				m_ZombieClose = true;
 			avg += Zombie->GetActorLocation();
 			count++;
@@ -261,9 +262,9 @@ bool FPerceptorMemory::IsItemFar(ABaseItem* item) const
 
 bool FPerceptorMemory::IsCloseEnoughForPickup(ABaseItem* item) const
 {
-	double distance = FVector::DistSquared(m_Owner->GetActorLocation(), item->GetActorLocation());
+	double distance = FVector::Distance(m_Owner->GetActorLocation(), item->GetActorLocation());
 
-	return distance < ItemPickupRadius * ItemPickupRadius;
+	return distance < ItemPickupRadius;
 }
 
 bool FPerceptorMemory::IsZombieRelevant(ABaseZombie* zombie) const

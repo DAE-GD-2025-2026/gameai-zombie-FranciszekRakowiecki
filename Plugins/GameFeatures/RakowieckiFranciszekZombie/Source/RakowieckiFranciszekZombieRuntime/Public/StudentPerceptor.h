@@ -30,7 +30,7 @@ public:
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 
 	UFUNCTION(BlueprintCallable, Category="Student Perceptor")
-	virtual void OnPickupItem(ABaseItem* Item);
+	virtual bool OnPickupItem(ABaseItem* Item);
 	UFUNCTION(BlueprintCallable, Category="Student Perceptor")
 	virtual void OnUseItem(EItemType ItemType);
 
@@ -52,6 +52,7 @@ private:
 	SurvivorParams Parameters{};
 
 	FVector MovementDirection{};
+	ABaseItem* CurrentPickupTarget{nullptr};
 
 	std::unique_ptr<BlendedSteering> Steering{};
 	
@@ -62,6 +63,7 @@ private:
 
 	void UseItem(ABaseItem* Item);
 
+	ABaseItem* GetDesiredPickupItem() const;
 	void UpdateBlackboardValues();
 	void UpdateInventoryStoredInfo();
 	void UpdateHealthInfo();

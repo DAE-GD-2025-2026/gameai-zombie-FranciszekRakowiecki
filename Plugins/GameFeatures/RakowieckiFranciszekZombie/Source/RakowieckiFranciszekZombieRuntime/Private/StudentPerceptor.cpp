@@ -144,15 +144,15 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 	}
 }
 
-void UStudentPerceptor::OnPickupItem(ABaseItem* Item)
+bool UStudentPerceptor::OnPickupItem(ABaseItem* Item)
 {
 	if (!Item || !Inventory)
 	{
-		return;
+		return false;
 	}
 
 	if (!Memory.IsCloseEnoughForPickup(Item))
-		return;
+		return false;
 
 	if (Item->GetItemType() == EItemType::Garbage)
 	{
@@ -160,14 +160,16 @@ void UStudentPerceptor::OnPickupItem(ABaseItem* Item)
 		if (Inventory->GetInventory()[lastIndex] == nullptr)
 		{
 			Inventory->GrabItem(lastIndex, Item);
+			Memory.ItemPickedUp(Item);
 			Inventory->RemoveItem(lastIndex); // Genuinely this is better than making my own function to remove garbage from the floor
-			return;
+			return false;
 		}
-		return;
+		return false;
 	}
 	else if (Parameters.HasMeds && Item->GetItemType() == EItemType::Medkit)
-		return;
+		return false;
 	AddItemToInventory(Item);
+	return true;
 }
 
 void UStudentPerceptor::OnUseItem(EItemType ItemType)
@@ -225,9 +227,10 @@ void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
 	UpdateInventoryStoredInfo();
 	UpdateHealthInfo();
 
-	if (Memory.GetClosestItem())
+	CurrentPickupTarget = GetDesiredPickupItem();
+	if (CurrentPickupTarget)
 	{
-		Parameters.IsCloseEnoughForPickup = Memory.IsCloseEnoughForPickup(Memory.GetClosestItem());
+		Parameters.IsCloseEnoughForPickup = Memory.IsCloseEnoughForPickup(CurrentPickupTarget);
 	}
 	else
 	{
@@ -274,12 +277,29 @@ void UStudentPerceptor::UseItem(ABaseItem* Item)
 	}
 }
 
+ABaseItem* UStudentPerceptor::GetDesiredPickupItem() const
+{
+	if (Parameters.IsDying && !Parameters.HasMeds && Memory.GetMeds())
+	{
+		return Memory.GetMeds();
+	}
+	if (Parameters.IsHungry && !Parameters.HasFood && Memory.GetFood())
+	{
+		return Memory.GetFood();
+	}
+	if (!Parameters.HasWeapon && Memory.GetWeapon())
+	{
+		return Memory.GetWeapon();
+	}
+	return Memory.GetClosestItem();
+}
+
 void UStudentPerceptor::UpdateBlackboardValues()
 {
 	Blackboard->SetValueAsObject(TEXT("Survivor"), GetOwner());
 	Blackboard->SetValueAsObject(TEXT("SelfActor"), GetOwner());
 	Blackboard->SetValueAsObject(TEXT("Zombie"), Memory.GetZombie());
-	Blackboard->SetValueAsObject(TEXT("PickupItem"), Memory.GetClosestItem());
+	Blackboard->SetValueAsObject(TEXT("PickupItem"), CurrentPickupTarget);
 	Blackboard->SetValueAsVector(TEXT("TargetLocation"), Parameters.HasTargetLocation ? MovementDirection * Memory.FleeDistance + GetOwner()->GetActorLocation() : GetOwner()->GetActorLocation());
 	Blackboard->SetValueAsBool(TEXT("hasTargetLocation"), Parameters.HasTargetLocation);
 	Blackboard->SetValueAsBool(TEXT("hasWeapon"), Parameters.HasWeapon);
