@@ -10,6 +10,7 @@
 #include "Engine/Engine.h"
 #include "Items/BaseItem.h"
 #include "PurgeZones/PurgeZone.h"
+#include "Survivor/SurvivorPawn.h"
 #include "Village/House/House.h"
 #include "Zombies/BaseZombie.h"
 
@@ -102,6 +103,7 @@ void UStudentPerceptor::BeginPlay()
 
 	Steering->AddSteering(std::make_unique<FleeZombies>(), 1.0);
 	Steering->AddSteering(std::make_unique<AvoidPurgeZones>(), 3.6);
+	Steering->AddSteering(std::make_unique<SeekPickupItem>(), 1.0);
 	Steering->AddSteering(std::make_unique<FindHouse>(), 1.0);
 }
 
@@ -159,17 +161,24 @@ bool UStudentPerceptor::OnPickupItem(ABaseItem* Item)
 		const uint32_t lastIndex = Inventory->GetInventoryCapacity() - 1;
 		if (Inventory->GetInventory()[lastIndex] == nullptr)
 		{
-			Inventory->GrabItem(lastIndex, Item);
+			if (!Inventory->GrabItem(lastIndex, Item))
+			{
+				return false;
+			}
 			Memory.ItemPickedUp(Item);
 			Inventory->RemoveItem(lastIndex); // Genuinely this is better than making my own function to remove garbage from the floor
-			return false;
+			return true;
 		}
 		return false;
 	}
 	else if (Parameters.HasMeds && Item->GetItemType() == EItemType::Medkit)
 		return false;
-	AddItemToInventory(Item);
-	return true;
+	return AddItemToInventory(Item);
+}
+
+bool UStudentPerceptor::TryPickupCurrentTarget()
+{
+	return OnPickupItem(CurrentPickupTarget);
 }
 
 void UStudentPerceptor::OnUseItem(EItemType ItemType)
@@ -216,7 +225,7 @@ void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
 	{
 		Blackboard = Controller->GetBlackboardComponent();
 	}
-	if (!Inventory || !Blackboard)
+	if (!Inventory || !Health || !Stamina || !Blackboard)
 	{
 		return;
 	}
@@ -226,8 +235,10 @@ void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
 
 	UpdateInventoryStoredInfo();
 	UpdateHealthInfo();
+	Parameters.IsZombieCloseEnough = Memory.GetZombieCloseEnough();
 
 	CurrentPickupTarget = GetDesiredPickupItem();
+	Parameters.PickupTarget = CurrentPickupTarget;
 	if (CurrentPickupTarget)
 	{
 		Parameters.IsCloseEnoughForPickup = Memory.IsCloseEnoughForPickup(CurrentPickupTarget);
@@ -236,10 +247,13 @@ void UStudentPerceptor::TickComponent(float DeltaTime, enum ELevelTick TickType,
 	{
 		Parameters.IsCloseEnoughForPickup = false;
 	}
+	UpdateDecision();
+	UpdateSprintState();
 
 	MovementDirection = Steering->GetOutput(Parameters, Memory, GetOwner());
-	Parameters.HasTargetLocation = Steering->HasOutput() && !MovementDirection.IsNearlyZero();
-	Parameters.IsZombieCloseEnough = Memory.GetZombieCloseEnough();
+	Parameters.HasTargetLocation = IsMovementDecision()
+		&& Steering->HasOutput()
+		&& !MovementDirection.IsNearlyZero();
 	
 	UpdateBlackboardValues();
 }
@@ -257,16 +271,17 @@ void UStudentPerceptor::print(const FString& message)
 	}
 }
 
-void UStudentPerceptor::AddItemToInventory(ABaseItem* Item)
+bool UStudentPerceptor::AddItemToInventory(ABaseItem* Item)
 {
 	for (int index = 0; index < Inventory->GetInventoryCapacity(); ++index)
 	{
 		if (Inventory->GrabItem(index, Item))
 		{
 			Memory.ItemPickedUp(Item);
-			return;
+			return true;
 		}
  	}
+	return false;
 }
 
 void UStudentPerceptor::UseItem(ABaseItem* Item)
@@ -279,19 +294,108 @@ void UStudentPerceptor::UseItem(ABaseItem* Item)
 
 ABaseItem* UStudentPerceptor::GetDesiredPickupItem() const
 {
-	if (Parameters.IsDying && !Parameters.HasMeds && Memory.GetMeds())
+	if (!Parameters.HasInventorySpace)
 	{
-		return Memory.GetMeds();
+		return nullptr;
 	}
-	if (Parameters.IsHungry && !Parameters.HasFood && Memory.GetFood())
+
+	ABaseItem* bestItem = nullptr;
+	float bestScore = 0.0f;
+	auto considerItem = [&](ABaseItem* item, float needScore)
 	{
-		return Memory.GetFood();
-	}
-	if (!Parameters.HasWeapon && Memory.GetWeapon())
+		if (!item)
+		{
+			return;
+		}
+		const float distancePenalty = static_cast<float>(Memory.GetDistanceTo(item)) / 25.0f;
+		const float score = needScore - distancePenalty;
+		if (score > bestScore)
+		{
+			bestScore = score;
+			bestItem = item;
+		}
+	};
+
+	if (!Parameters.HasMeds)
 	{
-		return Memory.GetWeapon();
+		considerItem(Memory.GetMeds(), 60.0f + (1.0f - Parameters.HealthRatio) * 80.0f);
 	}
-	return Memory.GetClosestItem();
+	if (!Parameters.HasFood)
+	{
+		considerItem(Memory.GetFood(), 55.0f + (1.0f - Parameters.StaminaRatio) * 70.0f);
+	}
+	if (!Parameters.HasWeapon)
+	{
+		considerItem(Memory.GetWeapon(), 100.0f);
+	}
+	return bestItem;
+}
+
+bool UStudentPerceptor::IsMovementDecision() const
+{
+	return Parameters.Decision == ESurvivorDecision::Flee
+		|| Parameters.Decision == ESurvivorDecision::PickupItem
+		|| Parameters.Decision == ESurvivorDecision::SearchHouse;
+}
+
+void UStudentPerceptor::UpdateDecision()
+{
+	if (Parameters.HealthRatio < 0.25f && Parameters.HasMeds)
+	{
+		Parameters.Decision = ESurvivorDecision::UseMedkit;
+	}
+	else if (Parameters.IsZombieCloseEnough)
+	{
+		const bool hasShotgun = Parameters.SelectedWeapon
+			&& Parameters.SelectedWeapon->GetItemType() == EItemType::Shotgun;
+		const float acceptableThreat = hasShotgun ? 2.0f : 1.25f;
+		Parameters.Decision = Parameters.HasWeapon
+			&& Parameters.HealthRatio > 0.4f
+			&& Memory.GetThreatLevel() <= acceptableThreat
+			? ESurvivorDecision::Fight
+			: ESurvivorDecision::Flee;
+	}
+	else if (Parameters.IsDying && Parameters.HasMeds)
+	{
+		Parameters.Decision = ESurvivorDecision::UseMedkit;
+	}
+	else if (Parameters.IsHungry && Parameters.HasFood)
+	{
+		Parameters.Decision = ESurvivorDecision::UseFood;
+	}
+	else if (CurrentPickupTarget)
+	{
+		Parameters.Decision = ESurvivorDecision::PickupItem;
+	}
+	else if (Memory.GetHouse())
+	{
+		Parameters.Decision = ESurvivorDecision::SearchHouse;
+	}
+	else
+	{
+		Parameters.Decision = ESurvivorDecision::Wander;
+	}
+
+	Parameters.ShouldSprint = Parameters.Decision == ESurvivorDecision::Flee
+		&& Parameters.StaminaRatio > 0.2f;
+}
+
+void UStudentPerceptor::UpdateSprintState()
+{
+	ASurvivorPawn* survivor = Cast<ASurvivorPawn>(GetOwner());
+	if (!survivor)
+	{
+		return;
+	}
+
+	if (Parameters.ShouldSprint)
+	{
+		survivor->StartRunning();
+	}
+	else
+	{
+		survivor->StopRunning();
+	}
 }
 
 void UStudentPerceptor::UpdateBlackboardValues()
@@ -372,11 +476,11 @@ void UStudentPerceptor::UpdateInventoryStoredInfo()
 void UStudentPerceptor::UpdateHealthInfo()
 {
 	{
-		float percentageMissing = float(Health->GetHealth()) / float(Health->GetMaxHealth());
-		Parameters.IsDying = percentageMissing < 0.5f;
+		Parameters.HealthRatio = float(Health->GetHealth()) / float(Health->GetMaxHealth());
+		Parameters.IsDying = Parameters.HealthRatio < 0.5f;
 	}
 	{
-		float percentageMissing = Stamina->GetCurrentStamina() / Stamina->GetMaxStamina();
-		Parameters.IsHungry = percentageMissing < 0.5f;
+		Parameters.StaminaRatio = Stamina->GetCurrentStamina() / Stamina->GetMaxStamina();
+		Parameters.IsHungry = Parameters.StaminaRatio < 0.5f;
 	}
 }

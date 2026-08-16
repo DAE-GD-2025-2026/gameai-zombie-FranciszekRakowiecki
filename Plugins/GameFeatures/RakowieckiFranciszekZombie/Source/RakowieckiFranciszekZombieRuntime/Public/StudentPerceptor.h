@@ -31,6 +31,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Student Perceptor")
 	virtual bool OnPickupItem(ABaseItem* Item);
+	bool TryPickupCurrentTarget();
 	UFUNCTION(BlueprintCallable, Category="Student Perceptor")
 	virtual void OnUseItem(EItemType ItemType);
 
@@ -59,11 +60,14 @@ private:
 	void print(const char* message);
 	void print(const FString& message);
 
-	void AddItemToInventory(ABaseItem* Item);
+	bool AddItemToInventory(ABaseItem* Item);
 
 	void UseItem(ABaseItem* Item);
 
 	ABaseItem* GetDesiredPickupItem() const;
+	bool IsMovementDecision() const;
+	void UpdateDecision();
+	void UpdateSprintState();
 	void UpdateBlackboardValues();
 	void UpdateInventoryStoredInfo();
 	void UpdateHealthInfo();

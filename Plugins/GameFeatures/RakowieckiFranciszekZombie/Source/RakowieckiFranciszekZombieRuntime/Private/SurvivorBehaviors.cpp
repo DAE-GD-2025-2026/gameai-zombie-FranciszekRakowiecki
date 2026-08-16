@@ -1,13 +1,15 @@
 ﻿#include "SurvivorBehaviors.h"
 
+#include "Items/BaseItem.h"
 #include "PurgeZones/PurgeZone.h"
 #include "Village/House/House.h"
 
 FVector FleeZombies::GetOutput(const SurvivorParams& params, const FPerceptorMemory& memory, AActor* owner)
 {
-	if (memory.GetZombie() != nullptr)
+	if (params.Decision != ESurvivorDecision::Fight && memory.GetZombie() != nullptr)
 	{
-		return (owner->GetActorLocation() - memory.GetRelZombieLoc()).GetSafeNormal();
+		const float strength = params.Decision == ESurvivorDecision::Flee ? 2.0f : 1.0f;
+		return (owner->GetActorLocation() - memory.GetRelZombieLoc()).GetSafeNormal2D() * strength;
 	}
 	return FVector::ZeroVector;
 }
@@ -42,9 +44,19 @@ bool AvoidPurgeZones::IsWithinPurgeZoneRange(AActor* actor, APurgeZone* zone)
 FVector FindHouse::GetOutput(const SurvivorParams& params, const FPerceptorMemory& memory, AActor* owner)
 {
 	AHouse* house = memory.GetHouse();
-	if (house != nullptr)
+	if (params.Decision == ESurvivorDecision::SearchHouse && house != nullptr)
 	{
 		return (memory.GetHouse()->GetActorLocation() - owner->GetActorLocation()).GetSafeNormal();
 	}
 	return FVector::ZeroVector;
+}
+
+FVector SeekPickupItem::GetOutput(const SurvivorParams& params, const FPerceptorMemory&, AActor* owner)
+{
+	if (params.Decision != ESurvivorDecision::PickupItem || !IsValid(params.PickupTarget))
+	{
+		return FVector::ZeroVector;
+	}
+
+	return (params.PickupTarget->GetActorLocation() - owner->GetActorLocation()).GetSafeNormal2D();
 }

@@ -21,3 +21,9 @@ class FindHouse : public SteeringBehavior
 public:
 	virtual FVector GetOutput(const SurvivorParams& params, const FPerceptorMemory& memory, AActor* owner) override;
 };
+
+class SeekPickupItem : public SteeringBehavior
+{
+public:
+	virtual FVector GetOutput(const SurvivorParams& params, const FPerceptorMemory& memory, AActor* owner) override;
+};

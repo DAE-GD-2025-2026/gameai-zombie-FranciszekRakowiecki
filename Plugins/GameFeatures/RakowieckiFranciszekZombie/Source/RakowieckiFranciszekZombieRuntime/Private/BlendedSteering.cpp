@@ -18,7 +18,7 @@ FVector BlendedSteering::GetOutput(const SurvivorParams& params, const FPercepto
 	for (auto& steering : m_Steerings)
 	{
 		FVector value = steering.steeringBehavior->GetOutput(params, memory, owner) * steering.weight;
-		if (value.X != 0 || value.Y != 0)
+		if (!value.IsNearlyZero())
 			m_HasOutput = true;
 		output += value;
 	}

@@ -1,6 +1,21 @@
 ﻿
 #pragma once
 
+#include "CoreMinimal.h"
+
+class ABaseItem;
+
+enum class ESurvivorDecision : uint8
+{
+	UseMedkit,
+	UseFood,
+	Flee,
+	Fight,
+	PickupItem,
+	SearchHouse,
+	Wander
+};
+
 struct SurvivorParams
 {
 	bool HasWeapon{false};
@@ -12,8 +27,14 @@ struct SurvivorParams
 	bool IsZombieCloseEnough{false};
 	bool HasTargetLocation{false};
 	bool IsCloseEnoughForPickup{false};
+	bool ShouldSprint{false};
+
+	float HealthRatio{1.0f};
+	float StaminaRatio{1.0f};
+	ESurvivorDecision Decision{ESurvivorDecision::Wander};
 
 	ABaseItem* SelectedWeapon{nullptr};
 	ABaseItem* SelectedFood{nullptr};
 	ABaseItem* SelectedMeds{nullptr};
+	ABaseItem* PickupTarget{nullptr};
 };
