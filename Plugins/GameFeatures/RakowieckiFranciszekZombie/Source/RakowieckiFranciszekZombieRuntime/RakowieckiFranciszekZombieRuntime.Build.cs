@@ -8,13 +8,6 @@ public class RakowieckiFranciszekZombieRuntime : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
-		bWarningsAsErrors = true;
-		CppCompileWarningSettings.ShadowVariableWarningLevel = WarningLevel.Error;
-		CppCompileWarningSettings.UnsafeTypeCastWarningLevel = WarningLevel.Error;
-		CppCompileWarningSettings.UndefinedIdentifierWarningLevel = WarningLevel.Error;
-		CppCompileWarningSettings.SwitchUnhandledEnumeratorWarningLevel = WarningLevel.Error;
-		CppCompileWarningSettings.DeprecationWarningLevel = WarningLevel.Off;
-		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
